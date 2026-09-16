@@ -1,0 +1,10 @@
+﻿Neptuno.Wpf/bin/
+Neptuno.Wpf/obj/
+.vs/
+*.user
+*.suo
+Aplicacion/
+Capturas/
+Referencia/
+Pruebas/
+*.user
