@@ -12,7 +12,7 @@ t.Rows.Add(4,"Lácteos","Quesos y otros productos lácteos",true);
 t.Rows.Add(5,"Carnes y Embutidos","Carnes preparadas y embutidos",true);
 ds.Tables.Add(t);
 t = new DataTable("Proveedores");
-t.Columns.Add("ProveedoreID", typeof(int));
+t.Columns.Add("ProveedorID", typeof(int));
 t.Columns.Add("CompaniaNombre", typeof(string));
 t.Columns.Add("NombreContacto", typeof(string));
 t.Columns.Add("CargoContacto", typeof(string));
