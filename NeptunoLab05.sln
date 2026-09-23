@@ -5,6 +5,8 @@ VisualStudioVersion = 18.10.12217.157 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neptuno.Wpf", "Neptuno.Wpf\Neptuno.Wpf.csproj", "{CA44BEE5-ABCD-4000-8C01-110022330055}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Neptuno.Data", "Neptuno.Data\Neptuno.Data.csproj", "{7C1E6458-3D6E-4E89-AF63-7B04D43BA9A1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -12,6 +14,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{CA44BEE5-ABCD-4000-8C01-110022330055}.Debug|x86.ActiveCfg = Debug|x86
 		{CA44BEE5-ABCD-4000-8C01-110022330055}.Debug|x86.Build.0 = Debug|x86
+		{7C1E6458-3D6E-4E89-AF63-7B04D43BA9A1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7C1E6458-3D6E-4E89-AF63-7B04D43BA9A1}.Debug|x86.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,5 +1,7 @@
-﻿Neptuno.Wpf/bin/
+Neptuno.Wpf/bin/
 Neptuno.Wpf/obj/
+Neptuno.Data/bin/
+Neptuno.Data/obj/
 .vs/
 *.user
 *.suo
@@ -8,4 +10,3 @@ Capturas/
 Verificacion*/
 Referencia/
 Pruebas/
-*.user

@@ -1,35 +1,47 @@
-﻿namespace NeptunoLab05 { public static class Schema { public static readonly Entity[] Entities = new Entity[] {
-new Entity("Productos","ProductoID",
-new Field("NombreProducto","Nombre del producto","text",60,true),
-new Field("ProveedorID","Proveedor","lookup",0,false),
-new Field("CategoriaID","Categoría","lookup",0,false),
-new Field("CantidadPorUnidad","Cantidad por unidad","text",30,false),
-new Field("PrecioUnidad","Precio unitario","decimal",0,true),
-new Field("UnidadesEnExistencia","Stock disponible","smallint",0,true),
-new Field("UnidadesEnPedido","Unidades en pedido","smallint",0,true),
-new Field("NivelDeReorden","Nivel de reorden","smallint",0,true),
-new Field("Descontinuado","Descontinuado","bit",0,true)),
-new Entity("Categorias","CategoriaID",
-new Field("NombreCategoria","Nombre de categoría","text",30,true),
-new Field("Descripcion","Descripción","text",200,false)),
-new Entity("Proveedores","ProveedorID",
-new Field("CompaniaNombre","Nombre de compañía","text",60,true),
-new Field("NombreContacto","Nombre de contacto","text",40,false),
-new Field("CargoContacto","Cargo del contacto","text",40,false),
-new Field("Direccion","Dirección","text",80,false),
-new Field("Ciudad","Ciudad","text",30,false),
-new Field("CodigoPostal","Código postal","text",10,false),
-new Field("Pais","País","text",30,false),
-new Field("Telefono","Teléfono","text",24,false),
-new Field("Fax","Fax","text",24,false)),
-new Entity("Pedidos","PedidoID",
-new Field("ClienteID","Cliente","lookup",0,false),
-new Field("EmpleadoID","Empleado","lookup",0,false),
-new Field("FechaPedido","Fecha del pedido","date",0,true),
-new Field("FechaRequerida","Fecha requerida","date",0,false),
-new Field("FechaEnvio","Fecha de envío","date",0,false),
-new Field("TransportistaID","Transportista","lookup",0,false),
-new Field("Destinatario","Destinatario","text",60,false),
-new Field("CiudadDestino","Ciudad de destino","text",30,false),
-new Field("PaisDestino","País de destino","text",30,false)),
-}; } }
+using Neptuno.Data.Models;
+
+namespace NeptunoLab05
+{
+    public static class Schema
+    {
+        public static readonly Entity[] Entities = new Entity[]
+        {
+            new Entity(typeof(Producto), "Productos", "ProductoID",
+                new Field("NombreProducto", "Nombre del producto", "text", 60, true),
+                new Field("ProveedorID", "Proveedor", "lookup", 0, false),
+                new Field("CategoriaID", "Categoría", "lookup", 0, false),
+                new Field("CantidadPorUnidad", "Cantidad por unidad", "text", 30, false),
+                new Field("PrecioUnidad", "Precio unitario", "decimal", 0, true),
+                new Field("UnidadesEnExistencia", "Stock disponible", "smallint", 0, true),
+                new Field("UnidadesEnPedido", "Unidades en pedido", "smallint", 0, true),
+                new Field("NivelDeReorden", "Nivel de reorden", "smallint", 0, true),
+                new Field("Descontinuado", "Descontinuado", "bit", 0, true)),
+
+            new Entity(typeof(Categoria), "Categorias", "CategoriaID",
+                new Field("NombreCategoria", "Nombre de categoría", "text", 30, true),
+                new Field("Descripcion", "Descripción", "text", 200, false)),
+
+            new Entity(typeof(Proveedor), "Proveedores", "ProveedorID",
+                new Field("CompaniaNombre", "Nombre de compañía", "text", 60, true),
+                new Field("NombreContacto", "Nombre de contacto", "text", 40, false),
+                new Field("CargoContacto", "Cargo del contacto", "text", 40, false),
+                new Field("Direccion", "Dirección", "text", 80, false),
+                new Field("Ciudad", "Ciudad", "text", 30, false),
+                new Field("CodigoPostal", "Código postal", "text", 10, false),
+                new Field("Pais", "País", "text", 30, false),
+                new Field("Telefono", "Teléfono", "text", 24, false),
+                new Field("Fax", "Fax", "text", 24, false)),
+
+            new Entity(typeof(Pedido), "Pedidos", "PedidoID",
+                new Field("ClienteID", "Cliente", "lookup", 0, false),
+                new Field("EmpleadoID", "Empleado", "lookup", 0, false),
+                new Field("FechaPedido", "Fecha del pedido", "date", 0, true),
+                new Field("FechaRequerida", "Fecha requerida", "date", 0, false),
+                new Field("FechaEnvio", "Fecha de envío", "date", 0, false),
+                new Field("TransportistaID", "Transportista", "lookup", 0, false),
+                new Field("Destinatario", "Destinatario", "text", 60, false),
+                new Field("CiudadDestino", "Ciudad de destino", "text", 30, false),
+                new Field("PaisDestino", "País de destino", "text", 30, false))
+        };
+    }
+}

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{7C1E6458-3D6E-4E89-AF63-7B04D43BA9A1}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Neptuno.Data</RootNamespace>
+    <AssemblyName>Neptuno.Data</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <LangVersion>5</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System"/>
+    <Reference Include="System.Core"/>
+    <Reference Include="System.Data"/>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Models\Entities.cs"/>
+    <Compile Include="Repositories\DbParameterValue.cs"/>
+    <Compile Include="Repositories\INeptunoRepository.cs"/>
+    <Compile Include="Repositories\NeptunoRepository.cs"/>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
+</Project>

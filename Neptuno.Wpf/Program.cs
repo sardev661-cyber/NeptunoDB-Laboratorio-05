@@ -2,30 +2,21 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
-using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Neptuno.Data.Models;
+using Neptuno.Data.Repositories;
 
 namespace NeptunoLab05
 {
-    public sealed class Field
-    {
-        public string Name, Label, Kind; public int Size; public bool Required;
-        public Field(string name, string label, string kind, int size, bool required)
-        { Name = name; Label = label; Kind = kind; Size = size; Required = required; }
-    }
-    public sealed class Entity
-    {
-        public string Name, Key; public Field[] Fields;
-        public Entity(string name, string key, params Field[] fields) { Name = name; Key = key; Fields = fields; }
-    }
     public static class Program
     {
         [STAThread]
@@ -40,7 +31,7 @@ namespace NeptunoLab05
     }
     public sealed class Shell
     {
-        public Window Window; public DataAccess Db; public DataSet Catalogs;
+        public Window Window; public INeptunoRepository Db; public DataSet Catalogs;
         public bool Preview; private TabControl tabs; private TextBlock status;
         private readonly List<CrudView> views = new List<CrudView>();
         private SearchView search; private ReportView report; private string capturePath;
@@ -57,53 +48,55 @@ namespace NeptunoLab05
             search = new SearchView(this); report = new ReportView(this);
             tabs.Items.Add(new TabItem { Header = "Buscar proveedores", Content = search.Root });
             tabs.Items.Add(new TabItem { Header = "Reporte por fechas", Content = report.Root });
-            tabs.SelectionChanged += delegate(object sender, SelectionChangedEventArgs e)
-            { if (e.Source == tabs && Db != null) Run(RefreshSelected); };
-            Window.Loaded += delegate {
+            tabs.SelectionChanged += async delegate(object sender, SelectionChangedEventArgs e)
+            { if (e.Source == tabs && Db != null) await RunAsync(RefreshSelectedAsync); };
+            Window.Loaded += async delegate {
                 if (Preview) { LoadPreview(); if (capturePath != null) Capture(0); }
-                else Connect();
+                else await ConnectAsync();
             };
         }
-        private void Connect()
+        private async Task ConnectAsync()
         {
-            Run(delegate {
+            await RunAsync(async delegate {
                 var configured = ConfigurationManager.ConnectionStrings["Neptuno"];
                 if (configured == null || string.IsNullOrWhiteSpace(configured.ConnectionString))
                     throw new ConfigurationErrorsException("No se encontró la cadena de conexión Neptuno en App.config.");
                 status.Text = "Conectando con SQL Server…";
-                var candidate = new DataAccess(configured.ConnectionString);
-                var catalogs = candidate.Catalogs(); // Solo sustituir la conexión después de validarla.
+                var candidate = new NeptunoRepository(configured.ConnectionString);
+                var catalogs = await candidate.CatalogsAsync(); // Validar antes de sustituir la conexión activa.
                 Db = candidate; Catalogs = catalogs; Preview = false;
                 foreach (var v in views) v.SetCatalogs(Catalogs);
-                Refresh(); status.Text = "Conexión activa · Se muestran únicamente registros activos.";
+                await RefreshAsync(); status.Text = "Conexión activa · Consultas desconectadas y registros activos.";
             });
         }
-        public void Run(Action action)
+        public async Task RunAsync(Func<Task> action)
         {
-            try { action(); }
+            try { await action(); }
             catch (Exception ex) { status.Text = "Error: " + ex.Message; MessageBox.Show(Window, ex.Message, "Revise la operación", MessageBoxButton.OK, MessageBoxImage.Warning); }
         }
         public void RequireDb()
         { if (Preview || Db == null) throw new InvalidOperationException("Conecte a SQL Server para consultar o modificar datos. La vista previa no ejecuta SQL."); }
-        public void Refresh()
+        public async Task RefreshAsync()
         {
-            RequireDb(); Catalogs = Db.Catalogs(); foreach (var v in views) { v.SetCatalogs(Catalogs); v.Load(); }
-            search.Load(); report.Load();
+            RequireDb(); Catalogs = await Db.CatalogsAsync();
+            foreach (var v in views) v.SetCatalogs(Catalogs);
+            foreach (var v in views) await v.LoadAsync();
+            await search.LoadAsync(); await report.LoadAsync();
         }
-        private void RefreshSelected()
+        private async Task RefreshSelectedAsync()
         {
             RequireDb();
             if (tabs.SelectedIndex >= 0 && tabs.SelectedIndex < views.Count)
             {
-                Catalogs = Db.Catalogs(); foreach (var v in views) v.SetCatalogs(Catalogs);
-                views[tabs.SelectedIndex].Load();
+                Catalogs = await Db.CatalogsAsync(); foreach (var v in views) v.SetCatalogs(Catalogs);
+                await views[tabs.SelectedIndex].LoadAsync();
             }
-            else if (tabs.SelectedIndex == views.Count) search.Load();
-            else if (tabs.SelectedIndex == views.Count + 1) report.Load();
+            else if (tabs.SelectedIndex == views.Count) await search.LoadAsync();
+            else if (tabs.SelectedIndex == views.Count + 1) await report.LoadAsync();
         }
-        public void Refresh(CrudView view)
+        public async Task RefreshAsync(CrudView view)
         {
-            RequireDb(); Catalogs = Db.Catalogs(); foreach (var v in views) v.SetCatalogs(Catalogs); view.Load();
+            RequireDb(); Catalogs = await Db.CatalogsAsync(); foreach (var v in views) v.SetCatalogs(Catalogs); await view.LoadAsync();
         }
         public void Notify(string message) { status.Text = message; }
         private void LoadPreview()
@@ -137,6 +130,19 @@ namespace NeptunoLab05
         public static Button Button(string text, Action action, string style)
         { var b = new Button { Content = text }; if (style != null) b.SetResourceReference(FrameworkElement.StyleProperty, style); b.Click += delegate { action(); }; return b; }
         public static Button Button(string text, Action action) { return Button(text, action, null); }
+        public static Button Button(string text, Func<Task> action, string style)
+        {
+            var b = new Button { Content = text };
+            if (style != null) b.SetResourceReference(FrameworkElement.StyleProperty, style);
+            b.Click += async delegate
+            {
+                b.IsEnabled = false;
+                try { await action(); }
+                finally { b.IsEnabled = true; }
+            };
+            return b;
+        }
+        public static Button Button(string text, Func<Task> action) { return Button(text, action, null); }
         public static TextBlock Title(string text)
         { return new TextBlock { Text = text, FontSize = 23, Foreground = new SolidColorBrush(Color.FromRgb(21,34,56)), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0,0,0,12) }; }
         public static FrameworkElement Labeled(string label, FrameworkElement input, double width)
@@ -175,15 +181,15 @@ namespace NeptunoLab05
                 inputs.Add(f.Name, control); form.Children.Add(Ui.Labeled(f.Label + (f.Required ? " *" : ""), control, 240));
             }
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0,3,0,4) };
-            buttons.Children.Add(Ui.Button("Nuevo / limpiar", Clear));
-            buttons.Children.Add(Ui.Button("Insertar", delegate { shell.Run(delegate { Save(true); }); }, "PrimaryButton"));
-            buttons.Children.Add(Ui.Button("Actualizar", delegate { shell.Run(delegate { Save(false); }); }));
-            buttons.Children.Add(Ui.Button("Eliminar", delegate { shell.Run(Delete); }, "DangerButton"));
-            buttons.Children.Add(Ui.Button("Recargar", delegate { shell.Run(delegate { shell.Refresh(this); }); })); top.Children.Add(buttons);
+            buttons.Children.Add(Ui.Button("Nuevo / limpiar", new Action(Clear)));
+            buttons.Children.Add(Ui.Button("Insertar", delegate { return shell.RunAsync(delegate { return SaveAsync(true); }); }, "PrimaryButton"));
+            buttons.Children.Add(Ui.Button("Actualizar", delegate { return shell.RunAsync(delegate { return SaveAsync(false); }); }));
+            buttons.Children.Add(Ui.Button("Eliminar", delegate { return shell.RunAsync(DeleteAsync); }, "DangerButton"));
+            buttons.Children.Add(Ui.Button("Recargar", delegate { return shell.RunAsync(delegate { return shell.RefreshAsync(this); }); })); top.Children.Add(buttons);
             grid = Ui.Grid(); grid.SelectionChanged += delegate { Select(); }; Root.Children.Add(grid); Clear();
         }
         public void SetData(DataTable table) { grid.ItemsSource = table.DefaultView; }
-        public void Load() { SetData(shell.Db.Read("dbo.usp_"+Entity.Name+"_Listar")); Clear(); }
+        public async Task LoadAsync() { SetData(await shell.Db.ReadAsync("dbo.usp_"+Entity.Name+"_Listar")); Clear(); }
         public void SetCatalogs(DataSet ds)
         {
             var positions = new Dictionary<string,int> { {"CategoriaID",0},{"ProveedorID",1},{"ClienteID",2},{"EmpleadoID",3},{"TransportistaID",4} };
@@ -219,44 +225,50 @@ namespace NeptunoLab05
                 if (c is CheckBox) ((CheckBox)c).IsChecked = value != DBNull.Value && Convert.ToBoolean(value);
             }
         }
-        private SqlParameter Parameter(Field f)
+        private DbParameterValue Parameter(Field f)
         {
-            var c=inputs[f.Name]; object value=DBNull.Value; SqlDbType type=SqlDbType.NVarChar;
+            var c=inputs[f.Name]; object value=DBNull.Value;
             if (f.Kind == "text") { value=((TextBox)c).Text.Trim(); if ((string)value == "") value=DBNull.Value; }
-            if (f.Kind == "lookup") { type=SqlDbType.Int; value=((ComboBox)c).SelectedValue ?? DBNull.Value; }
-            if (f.Kind == "date") { type=SqlDbType.Date; value=(object)((DatePicker)c).SelectedDate ?? DBNull.Value; }
-            if (f.Kind == "bit") { type=SqlDbType.Bit; value=((CheckBox)c).IsChecked == true; }
+            if (f.Kind == "lookup") value=((ComboBox)c).SelectedValue ?? DBNull.Value;
+            if (f.Kind == "date") value=(object)((DatePicker)c).SelectedDate ?? DBNull.Value;
+            if (f.Kind == "bit") value=((CheckBox)c).IsChecked == true;
             if (f.Kind == "smallint")
             {
-                type=SqlDbType.SmallInt; short n;
+                short n;
                 if (!short.TryParse(((TextBox)c).Text, out n) || n < 0) throw new ArgumentException(f.Label+": use un entero entre 0 y 32767."); value=n;
             }
             if (f.Kind == "decimal")
             {
-                type=SqlDbType.Decimal; decimal n;
+                decimal n;
                 if (!decimal.TryParse(((TextBox)c).Text, NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign, CultureInfo.CurrentCulture, out n) || n < 0 || n > 99999999.99m || decimal.Round(n,2) != n)
                     throw new ArgumentException(f.Label+": use un valor entre 0 y 99999999,99 con máximo dos decimales. Separador local: "+CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator);
                 value=n;
             }
             if (f.Required && value == DBNull.Value) throw new ArgumentException(f.Label+" es obligatorio.");
-            var p=new SqlParameter("@"+f.Name,type) { Value=value }; if(f.Size>0) p.Size=f.Size;
-            if(type==SqlDbType.Decimal) { p.Precision=10; p.Scale=2; } return p;
+            var name="@"+f.Name;
+            if (f.Kind == "text") return DbParameterValue.Text(name,f.Size,value == DBNull.Value ? null : (string)value);
+            if (f.Kind == "lookup") return DbParameterValue.Integer(name,value);
+            if (f.Kind == "date") return DbParameterValue.Date(name,value);
+            if (f.Kind == "bit") return DbParameterValue.Bit(name,value);
+            if (f.Kind == "smallint") return DbParameterValue.SmallInt(name,value);
+            if (f.Kind == "decimal") return DbParameterValue.Decimal(name,value);
+            throw new InvalidOperationException("Tipo de campo no soportado: "+f.Kind);
         }
-        private void Save(bool insert)
+        private async Task SaveAsync(bool insert)
         {
             shell.RequireDb(); if (!insert && !selected.HasValue) throw new InvalidOperationException("Seleccione el registro que desea actualizar.");
             if (insert && selected.HasValue) throw new InvalidOperationException("Pulse Nuevo / limpiar antes de insertar un registro.");
             var parameters=Entity.Fields.Select(Parameter).ToList();
-            if (!insert) parameters.Insert(0,new SqlParameter("@"+Entity.Key,SqlDbType.Int) { Value=selected.Value });
-            int id=shell.Db.Write("dbo.usp_"+Entity.Name+(insert ? "_Insertar" : "_Actualizar"),insert,parameters.ToArray());
-            shell.Refresh(this); shell.Notify(insert ? "Registro insertado. ID generado: "+id : "Registro actualizado correctamente.");
+            if (!insert) parameters.Insert(0,DbParameterValue.Integer("@"+Entity.Key,selected.Value));
+            int id=await shell.Db.WriteAsync("dbo.usp_"+Entity.Name+(insert ? "_Insertar" : "_Actualizar"),insert,parameters.ToArray());
+            await shell.RefreshAsync(this); shell.Notify(insert ? "Registro insertado. ID generado: "+id : "Registro actualizado correctamente.");
         }
-        private void Delete()
+        private async Task DeleteAsync()
         {
             shell.RequireDb(); if (!selected.HasValue) throw new InvalidOperationException("Seleccione un registro para darlo de baja.");
             if (MessageBox.Show("¿Dar de baja el registro "+selected+"? Se conservará en la base con Activo = 0.","Confirmar baja lógica",MessageBoxButton.YesNo,MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-            shell.Db.Write("dbo.usp_"+Entity.Name+"_Eliminar",false,new SqlParameter("@"+Entity.Key,SqlDbType.Int) { Value=selected.Value });
-            shell.Refresh(this); shell.Notify("Baja lógica realizada: Activo = 0. El registro se conserva en SQL Server.");
+            await shell.Db.WriteAsync("dbo.usp_"+Entity.Name+"_Eliminar",false,DbParameterValue.Integer("@"+Entity.Key,selected.Value));
+            await shell.RefreshAsync(this); shell.Notify("Baja lógica realizada: Activo = 0. El registro se conserva en SQL Server.");
         }
     }
     public sealed class SearchView
@@ -267,11 +279,16 @@ namespace NeptunoLab05
             this.shell=shell; Root=new DockPanel { Margin=new Thickness(18) }; var top=new StackPanel(); DockPanel.SetDock(top,Dock.Top); Root.Children.Add(top);
             top.Children.Add(Ui.Title("Buscar proveedores activos")); top.Children.Add(new TextBlock { Text="Coincidencias parciales por contacto y ciudad. Ambos filtros se combinan con AND.",Margin=new Thickness(0,0,0,15) });
             var form=new WrapPanel(); form.Children.Add(Ui.Labeled("Nombre de contacto",contact,300)); form.Children.Add(Ui.Labeled("Ciudad",city,240)); top.Children.Add(form);
-            var buttons=new StackPanel { Orientation=Orientation.Horizontal }; buttons.Children.Add(Ui.Button("Buscar",delegate { shell.Run(delegate { shell.RequireDb(); Load(); }); }));
-            buttons.Children.Add(Ui.Button("Limpiar filtros",delegate { contact.Clear(); city.Clear(); if(shell.Db!=null) shell.Run(Load); })); top.Children.Add(buttons); Root.Children.Add(grid);
+            var buttons=new StackPanel { Orientation=Orientation.Horizontal }; buttons.Children.Add(Ui.Button("Buscar",delegate { return shell.RunAsync(delegate { shell.RequireDb(); return LoadAsync(); }); },"PrimaryButton"));
+            buttons.Children.Add(Ui.Button("Limpiar filtros",new Func<Task>(ClearFiltersAsync))); top.Children.Add(buttons); Root.Children.Add(grid);
         }
         public void SetData(DataTable table) { grid.ItemsSource=table.DefaultView; }
-        public void Load() { SetData(shell.Db.Read("dbo.usp_Proveedores_Buscar",DataAccess.Text("@NombreContacto",40,contact.Text),DataAccess.Text("@Ciudad",30,city.Text))); }
+        public async Task LoadAsync() { SetData(await shell.Db.ReadAsync("dbo.usp_Proveedores_Buscar",DbParameterValue.Text("@NombreContacto",40,contact.Text),DbParameterValue.Text("@Ciudad",30,city.Text))); }
+        private Task ClearFiltersAsync()
+        {
+            contact.Clear(); city.Clear();
+            return shell.Db == null ? Task.FromResult(0) : shell.RunAsync(LoadAsync);
+        }
     }
     public sealed class ReportView
     {
@@ -282,17 +299,17 @@ namespace NeptunoLab05
             this.shell=shell; Root=new DockPanel { Margin=new Thickness(18) }; var top=new StackPanel(); DockPanel.SetDock(top,Dock.Top); Root.Children.Add(top);
             top.Children.Add(Ui.Title("Detalles de pedidos por fechas")); top.Children.Add(new TextBlock { Text="Fecha del pedido · Incluye ambos extremos · Solo pedidos activos",Margin=new Thickness(0,0,0,15) });
             var form=new WrapPanel(); form.Children.Add(Ui.Labeled("Desde",from,240)); form.Children.Add(Ui.Labeled("Hasta",to,240)); top.Children.Add(form);
-            top.Children.Add(Ui.Button("Consultar reporte",delegate { shell.Run(delegate { shell.RequireDb(); Load(); }); },"PrimaryButton")); top.Children.Add(total); Root.Children.Add(grid);
+            top.Children.Add(Ui.Button("Consultar reporte",delegate { return shell.RunAsync(delegate { shell.RequireDb(); return LoadAsync(); }); },"PrimaryButton")); top.Children.Add(total); Root.Children.Add(grid);
         }
         public void SetData(DataTable table)
         {
             grid.ItemsSource=table.DefaultView; decimal sum=0; foreach(DataRow row in table.Rows) sum+=Convert.ToDecimal(row["Importe"]);
             total.Text=table.Rows.Count+" detalles · Importe total: "+sum.ToString("N2");
         }
-        public void Load()
+        public async Task LoadAsync()
         {
             if(!from.SelectedDate.HasValue || !to.SelectedDate.HasValue || from.SelectedDate>to.SelectedDate) throw new ArgumentException("Seleccione Desde y Hasta en orden válido.");
-            SetData(shell.Db.Read("dbo.usp_DetallePedidos_PorFechas",DataAccess.Date("@Desde",from.SelectedDate.Value),DataAccess.Date("@Hasta",to.SelectedDate.Value)));
+            SetData(await shell.Db.ReadAsync("dbo.usp_DetallePedidos_PorFechas",DbParameterValue.Date("@Desde",from.SelectedDate.Value),DbParameterValue.Date("@Hasta",to.SelectedDate.Value)));
         }
     }
 }
